@@ -56,7 +56,12 @@ class MainActivity : AppCompatActivity(), MainRepository.Listener {
         }
 
     private fun openGallery(){
-        val permission = android.Manifest.permission.READ_EXTERNAL_STORAGE
+        val permission = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            android.Manifest.permission.READ_MEDIA_IMAGES
+        } else {
+            android.Manifest.permission.READ_EXTERNAL_STORAGE
+        }
+        
         if (ContextCompat.checkSelfPermission(
                 this,permission
         ) != PackageManager.PERMISSION_GRANTED ) {
@@ -145,22 +150,24 @@ class MainActivity : AppCompatActivity(), MainRepository.Listener {
         }
     }
 
-    override fun onDataReceivedFromChannel(it: DataChannel.Buffer) {
+    override fun onDataReceivedFromChannel(data: Pair<String, Any>) {
         runOnUiThread {
-            val model = DataConverter.convertToModel(it)
-            model?.let {
-                when(it.first){
-                    "TEXT"->{
-                        views.receivedText.text = it.second
-                            .toString()
-                    }
-                    "IMAGE"->{
-                        Glide.with(this).load(it.second as Bitmap).into(
-                            views.receivedImageView
-                        )
-                    }
+            when(data.first){
+                "TEXT"->{
+                    views.receivedText.text = data.second.toString()
+                }
+                "IMAGE"->{
+                    Glide.with(this).load(data.second as Bitmap).into(
+                        views.receivedImageView
+                    )
                 }
             }
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        // Cleanup WebSocket and WebRTC connections
+        mainRepository.cleanup()
     }
 }

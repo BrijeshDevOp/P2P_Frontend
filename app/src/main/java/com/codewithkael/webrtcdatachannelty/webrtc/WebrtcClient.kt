@@ -4,6 +4,7 @@ import android.content.Context
 import com.codewithkael.webrtcdatachannelty.utils.DataModel
 import com.codewithkael.webrtcdatachannelty.utils.DataModelType
 import com.google.gson.Gson
+import android.util.Log
 import org.webrtc.*
 import org.webrtc.PeerConnection.Observer
 import javax.inject.Inject
@@ -18,6 +19,7 @@ class WebrtcClient @Inject constructor(
     var receiverListener : ReceiverListener?=null
 
     private var peerConnection: PeerConnection? = null
+    private var dataChannel: DataChannel? = null  // Add this to store the created DataChannel
     private val eglBaseContext = EglBase.create().eglBaseContext
     private val peerConnectionFactory by lazy { createPeerConnectionFactory() }
     private val mediaConstraint = MediaConstraints().apply {
@@ -28,10 +30,11 @@ class WebrtcClient @Inject constructor(
 
     private val dataChannelObserver = object : DataChannel.Observer {
         override fun onBufferedAmountChange(p0: Long) {
-
+            Log.d("WebrtcClient", "DataChannel buffered amount: $p0")
         }
 
         override fun onStateChange() {
+            Log.d("WebrtcClient", "DataChannel state changed to: ${dataChannel?.state()}")
         }
 
         override fun onMessage(p0: DataChannel.Buffer?) {
@@ -41,7 +44,13 @@ class WebrtcClient @Inject constructor(
     }
 
     private val iceServer = listOf(
+        // STUN servers for better connectivity
+        PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer(),
+        PeerConnection.IceServer.builder("stun:stun1.l.google.com:19302").createIceServer(),
+        // TURN server for NAT traversal
         PeerConnection.IceServer.builder("turn:openrelay.metered.ca:443?transport=tcp")
+            .setUsername("openrelayproject").setPassword("openrelayproject").createIceServer(),
+        PeerConnection.IceServer.builder("turn:openrelay.metered.ca:80")
             .setUsername("openrelayproject").setPassword("openrelayproject").createIceServer()
     )
 
@@ -55,12 +64,24 @@ class WebrtcClient @Inject constructor(
         this.username = username
         this.observer = observer
         peerConnection = createPeerConnection(observer)
-        createDataChannel()
+        // Don't create DataChannel here - only offerer will create it
     }
 
-    private fun createDataChannel(){
-       val initDataChannel = DataChannel.Init()
-        val dataChannel = peerConnection?.createDataChannel("dataChannelLabel",initDataChannel)
+    // Only call this for the offerer
+    fun createDataChannel() {
+        if (dataChannel == null) {
+            val initDataChannel = DataChannel.Init()
+            dataChannel = peerConnection?.createDataChannel("dataChannelLabel", initDataChannel)
+            dataChannel?.registerObserver(dataChannelObserver)
+        }
+    }
+
+    // Get the DataChannel (for offerer) or null (for answerer)
+    fun getDataChannel(): DataChannel? = dataChannel
+
+    // Set the DataChannel (for answerer when receiving from remote)
+    fun setDataChannel(channel: DataChannel?) {
+        dataChannel = channel
         dataChannel?.registerObserver(dataChannelObserver)
     }
 
@@ -140,7 +161,7 @@ class WebrtcClient @Inject constructor(
     }
 
     fun sendIceCandidate(candidate: IceCandidate,target: String){
-        addIceCandidate(candidate)
+        // Don't add local candidate to local PeerConnection - only send it to remote
         listener?.onTransferEventToSocket(
             DataModel(
                 type = DataModelType.IceCandidates,

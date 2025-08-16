@@ -22,6 +22,7 @@ class SocketClient @Inject constructor(
 
     companion object {
         private var webSocket: WebSocketClient? = null
+        private var isReconnecting = false
     }
 
     var listener: Listener? = null
@@ -53,9 +54,13 @@ class SocketClient @Inject constructor(
             }
 
             override fun onClose(code: Int, reason: String?, remote: Boolean) {
-                CoroutineScope(Dispatchers.IO).launch {
-                    delay(5000)
-                    init(username)
+                if (!isReconnecting) {
+                    isReconnecting = true
+                    CoroutineScope(Dispatchers.IO).launch {
+                        delay(5000)
+                        isReconnecting = false
+                        init(username)
+                    }
                 }
             }
 

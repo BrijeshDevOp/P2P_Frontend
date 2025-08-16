@@ -8,8 +8,8 @@ import java.io.File
 import java.nio.ByteBuffer
 import kotlin.math.log
 
-object DataConverter {
-    private const val TAG = "DataConverter"
+class DataConverter {
+    private val TAG = "DataConverter"
 
     private var isWaitingForData = false
     private var nextInputType: String? = null

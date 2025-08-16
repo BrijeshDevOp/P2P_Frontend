@@ -8,6 +8,7 @@ import com.codewithkael.webrtcdatachannelty.utils.FileMetaDataType
 import com.codewithkael.webrtcdatachannelty.webrtc.MyPeerObserver
 import com.codewithkael.webrtcdatachannelty.webrtc.WebrtcClient
 import com.google.gson.Gson
+import android.util.Log
 import org.webrtc.DataChannel
 import org.webrtc.IceCandidate
 import org.webrtc.SessionDescription
@@ -21,7 +22,7 @@ class MainRepository @Inject constructor(
 ) : SocketClient.Listener, WebrtcClient.Listener, WebrtcClient.ReceiverListener {
     private lateinit var username: String
     private lateinit var target: String
-    private var dataChannel: DataChannel? = null
+    private val dataConverter = DataConverter()  // Create instance
 
     var listener: Listener? = null
 
@@ -51,7 +52,8 @@ class MainRepository @Inject constructor(
 
             override fun onDataChannel(p0: DataChannel?) {
                 super.onDataChannel(p0)
-                dataChannel = p0
+                // Answerer receives the DataChannel from offerer
+                webrtcClient.setDataChannel(p0)
                 listener?.onDataChannelReceived()
 
             }
@@ -72,60 +74,73 @@ class MainRepository @Inject constructor(
     }
 
     fun startCall(target: String) {
+        // Offerer creates the DataChannel
+        webrtcClient.createDataChannel()
         webrtcClient.call(target)
     }
 
     fun sendTextToDataChannel(text:String){
-        sendBufferToDataChannel(DataConverter.convertToBuffer(FileMetaDataType.META_DATA_TEXT,text))
-        sendBufferToDataChannel(DataConverter.convertToBuffer(FileMetaDataType.TEXT,text))
+        sendBufferToDataChannel(dataConverter.convertToBuffer(FileMetaDataType.META_DATA_TEXT,text))
+        sendBufferToDataChannel(dataConverter.convertToBuffer(FileMetaDataType.TEXT,text))
     }
 
     fun sendImageToChannel(path:String){
-        sendBufferToDataChannel(DataConverter.convertToBuffer(FileMetaDataType.META_DATA_IMAGE,path))
-        sendBufferToDataChannel(DataConverter.convertToBuffer(FileMetaDataType.IMAGE,path))
+        sendBufferToDataChannel(dataConverter.convertToBuffer(FileMetaDataType.META_DATA_IMAGE,path))
+        sendBufferToDataChannel(dataConverter.convertToBuffer(FileMetaDataType.IMAGE,path))
     }
 
     private fun sendBufferToDataChannel(buffer: DataChannel.Buffer){
-        dataChannel?.send(buffer)
-
+        val dataChannel = webrtcClient.getDataChannel()
+        if (dataChannel?.state() == DataChannel.State.OPEN) {
+            dataChannel.send(buffer)
+        } else {
+            Log.e("MainRepository", "DataChannel not ready. State: ${dataChannel?.state()}")
+        }
     }
 
     override fun onNewMessageReceived(model: DataModel) {
-        when (model.type) {
-            StartConnection -> {
-                this.target = model.username
-                listener?.onConnectionRequestReceived(model.username)
-            }
-            Offer -> {
-                webrtcClient.onRemoteSessionReceived(
-                    SessionDescription(
-                        SessionDescription.Type.OFFER, model.data.toString()
-                    )
-                )
-                this.target = model.username
-                webrtcClient.answer(target)
-            }
-            Answer -> {
-                webrtcClient.onRemoteSessionReceived(
-                    SessionDescription(
-                        SessionDescription.Type.ANSWER, model.data.toString()
-                    )
-                )
-            }
-            IceCandidates -> {
-                val candidate = try {
-                    gson.fromJson(model.data.toString(), IceCandidate::class.java)
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                    null
+        try {
+            when (model.type) {
+                StartConnection -> {
+                    this.target = model.username ?: return
+                    listener?.onConnectionRequestReceived(model.username)
                 }
-                candidate?.let {
-                    webrtcClient.addIceCandidate(it)
+                Offer -> {
+                    val sdpData = model.data?.toString() ?: return
+                    webrtcClient.onRemoteSessionReceived(
+                        SessionDescription(
+                            SessionDescription.Type.OFFER, sdpData
+                        )
+                    )
+                    this.target = model.username ?: return
+                    webrtcClient.answer(target)
+                }
+                Answer -> {
+                    val sdpData = model.data?.toString() ?: return
+                    webrtcClient.onRemoteSessionReceived(
+                        SessionDescription(
+                            SessionDescription.Type.ANSWER, sdpData
+                        )
+                    )
+                }
+                IceCandidates -> {
+                    val candidate = try {
+                        gson.fromJson(model.data.toString(), IceCandidate::class.java)
+                    } catch (e: Exception) {
+                        Log.e("MainRepository", "Failed to parse ICE candidate: ${e.message}")
+                        null
+                    }
+                    candidate?.let {
+                        webrtcClient.addIceCandidate(it)
+                    }
+                }
+                else -> {
+                    Log.w("MainRepository", "Unknown message type: ${model.type}")
                 }
             }
-            else -> Unit
+        } catch (e: Exception) {
+            Log.e("MainRepository", "Error processing message: ${e.message}")
         }
-
     }
 
     override fun onTransferEventToSocket(data: DataModel) {
@@ -133,12 +148,20 @@ class MainRepository @Inject constructor(
     }
 
     override fun onDataReceived(it: DataChannel.Buffer) {
-        listener?.onDataReceivedFromChannel(it)
+        val model = dataConverter.convertToModel(it)
+        model?.let { result ->
+            listener?.onDataReceivedFromChannel(result)
+        }
+    }
+
+    fun cleanup() {
+        socketClient.onDestroy()
+        // Note: WebRTC cleanup is handled automatically when PeerConnection is garbage collected
     }
 
     interface Listener {
         fun onConnectionRequestReceived(target: String)
         fun onDataChannelReceived()
-        fun onDataReceivedFromChannel(it: DataChannel.Buffer)
+        fun onDataReceivedFromChannel(data: Pair<String, Any>)
     }
 }
