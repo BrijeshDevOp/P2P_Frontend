@@ -29,7 +29,8 @@ class SocketClient @Inject constructor(
     fun init(username: String) {
         this.username = username
 
-        webSocket = object : WebSocketClient(URI("ws://10.0.2.2:3000")) {
+        // TODO: Replace 'your-app-name' with your actual Render app name
+        webSocket = object : WebSocketClient(URI("wss://your-app-name.onrender.com")) {
             override fun onOpen(handshakedata: ServerHandshake?) {
                 sendMessageToSocket(
                     DataModel(
