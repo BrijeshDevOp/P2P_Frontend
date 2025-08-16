@@ -35,6 +35,10 @@ class WebrtcClient @Inject constructor(
 
         override fun onStateChange() {
             Log.d("WebrtcClient", "DataChannel state changed to: ${dataChannel?.state()}")
+            // Notify when DataChannel is open (for both offerer and answerer)
+            if (dataChannel?.state() == DataChannel.State.OPEN) {
+                receiverListener?.onDataChannelReady()
+            }
         }
 
         override fun onMessage(p0: DataChannel.Buffer?) {
@@ -178,5 +182,6 @@ class WebrtcClient @Inject constructor(
 
     interface ReceiverListener{
         fun onDataReceived(it:DataChannel.Buffer)
+        fun onDataChannelReady()  // New callback for when DataChannel is ready
     }
 }

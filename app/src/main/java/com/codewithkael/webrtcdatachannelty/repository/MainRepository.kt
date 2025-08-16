@@ -54,8 +54,7 @@ class MainRepository @Inject constructor(
                 super.onDataChannel(p0)
                 // Answerer receives the DataChannel from offerer
                 webrtcClient.setDataChannel(p0)
-                listener?.onDataChannelReceived()
-
+                // The DataChannel state change will trigger onDataChannelReady()
             }
 
         })
@@ -152,6 +151,11 @@ class MainRepository @Inject constructor(
         model?.let { result ->
             listener?.onDataReceivedFromChannel(result)
         }
+    }
+
+    override fun onDataChannelReady() {
+        // Both offerer and answerer get notified when DataChannel is ready
+        listener?.onDataChannelReceived()
     }
 
     fun cleanup() {
