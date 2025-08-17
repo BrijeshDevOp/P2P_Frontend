@@ -3,7 +3,10 @@ package com.codewithkael.webrtcdatachannelty.ui
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.os.Bundle
+import android.os.Environment
 import android.widget.Toast
+import java.io.File
+import java.io.FileOutputStream
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -157,11 +160,48 @@ class MainActivity : AppCompatActivity(), MainRepository.Listener {
                     views.receivedText.text = data.second.toString()
                 }
                 "IMAGE"->{
-                    Glide.with(this).load(data.second as Bitmap).into(
+                    val bitmap = data.second as Bitmap
+                    Glide.with(this).load(bitmap).into(
                         views.receivedImageView
                     )
+                    // Automatically save the received image to device storage
+                    saveImageToDevice(bitmap)
                 }
             }
+        }
+    }
+
+    private fun saveImageToDevice(bitmap: Bitmap) {
+        try {
+            // Create a unique filename with timestamp
+            val timestamp = System.currentTimeMillis()
+            val filename = "WebRTC_Image_$timestamp.jpg"
+            
+            // Save to Pictures directory
+            val picturesDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)
+            if (!picturesDir.exists()) {
+                picturesDir.mkdirs()
+            }
+            
+            val imageFile = File(picturesDir, filename)
+            
+            // Create output stream and compress bitmap to JPEG
+            val outputStream = FileOutputStream(imageFile)
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 90, outputStream)
+            outputStream.flush()
+            outputStream.close()
+            
+            // Show success message with file path
+            val message = "Image saved to Pictures folder: $filename"
+            Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+            
+            // Log for debugging
+            android.util.Log.d("MainActivity", "Image saved successfully: ${imageFile.absolutePath}")
+            
+        } catch (e: Exception) {
+            val errorMessage = "Failed to save image: ${e.message}"
+            Toast.makeText(this, errorMessage, Toast.LENGTH_SHORT).show()
+            android.util.Log.e("MainActivity", errorMessage, e)
         }
     }
 
