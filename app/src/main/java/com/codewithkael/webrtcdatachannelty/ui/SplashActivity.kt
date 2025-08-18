@@ -5,7 +5,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import androidx.appcompat.app.AppCompatActivity
-import com.codewithkael.webrtcdatachannelty.R
+//import com.codewithkael.webrtcdatachannelty.R
 import com.codewithkael.webrtcdatachannelty.databinding.ActivitySplashBinding
 
 class SplashActivity : AppCompatActivity() {
