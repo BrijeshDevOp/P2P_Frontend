@@ -32,24 +32,20 @@
                 android:textStyle="bold"
                 app:layout_constraintTop_toTopOf="parent" />
 
-            <androidx.appcompat.widget.AppCompatButton
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/notificationAcceptBtn"
                 android:layout_width="100dp"
                 android:layout_height="40dp"
-                android:background="#00994c"
                 android:text="accept"
-                android:textColor="@color/white"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toStartOf="@id/notificationDeclineBtn"
                 app:layout_constraintStart_toStartOf="parent" />
 
-            <androidx.appcompat.widget.AppCompatButton
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/notificationDeclineBtn"
                 android:layout_width="100dp"
                 android:layout_height="40dp"
-                android:background="#cc0000"
                 android:text="decline"
-                android:textColor="@color/white"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toEndOf="@id/notificationAcceptBtn" />
