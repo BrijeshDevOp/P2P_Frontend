@@ -87,6 +87,11 @@ class WebrtcClient @Inject constructor(
     fun setDataChannel(channel: DataChannel?) {
         dataChannel = channel
         dataChannel?.registerObserver(dataChannelObserver)
+        // If the DataChannel is already open when we receive it (common on the answerer),
+        // trigger readiness immediately so UI updates do not rely solely on future state changes.
+        if (dataChannel?.state() == DataChannel.State.OPEN) {
+            receiverListener?.onDataChannelReady()
+        }
     }
 
 

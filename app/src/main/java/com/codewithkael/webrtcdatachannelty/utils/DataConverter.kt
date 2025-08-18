@@ -2,86 +2,136 @@ package com.codewithkael.webrtcdatachannelty.utils
 
 import android.graphics.BitmapFactory
 import android.util.Log
-import com.codewithkael.webrtcdatachannelty.utils.FileMetaDataType.*
 import org.webrtc.DataChannel
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.nio.ByteBuffer
-import kotlin.math.log
+import java.util.UUID
 
 class DataConverter {
     private val TAG = "DataConverter"
 
-    private var isWaitingForData = false
-    private var nextInputType: String? = null
+    // Conservative chunk size to avoid exceeding typical SCTP message limits
+    private val CHUNK_SIZE_BYTES = 16_000
 
-    fun convertToBuffer(type: FileMetaDataType, body: String): DataChannel.Buffer {
-        Log.d(TAG, "convertToBuffer: type = $type body = $body")
-        return when (type) {
-            TEXT -> {
-                val fileDataBuffer = ByteBuffer.wrap(body.toByteArray())
-                DataChannel.Buffer(fileDataBuffer, false)
-            }
-            IMAGE -> {
-                val imageFile = File(body)
-                val fileData = imageFile.readBytes()
-                DataChannel.Buffer(ByteBuffer.wrap(fileData), false)
-            }
-            META_DATA_TEXT -> {
-                val fileDataBuffer = ByteBuffer.wrap(META_DATA_TEXT.name.toByteArray())
-                DataChannel.Buffer(fileDataBuffer, false)
-            }
-            META_DATA_IMAGE -> {
-                val fileDataBuffer = ByteBuffer.wrap(META_DATA_IMAGE.name.toByteArray())
-                DataChannel.Buffer(fileDataBuffer, false)
-            }
-        }
+    // In-memory assemblies for concurrently received messages keyed by messageId
+    private val incomingAssemblies = mutableMapOf<String, IncomingAssembly>()
 
+    private data class IncomingAssembly(
+        val type: String,
+        val totalChunks: Int,
+        val chunks: MutableMap<Int, ByteArray> = mutableMapOf(),
+        var receivedCount: Int = 0
+    )
+
+    // Public API: build one or more framed buffers for sending text
+    fun buildFramesForText(text: String): List<DataChannel.Buffer> {
+        val data = text.toByteArray(Charsets.UTF_8)
+        return buildFramedBuffers("TEXT", data)
     }
 
-    fun convertToModel(buffer: DataChannel.Buffer): Pair<String, Any>? {
-        Log.d(TAG, "convertToModel: convert to model is called status = $isWaitingForData")
-        val data = ByteArray(buffer.data.remaining())
-        buffer.data.get(data)
-        return if (!isWaitingForData) {
-            nextInputType = when (String(data, Charsets.UTF_8)) {
-                "META_DATA_TEXT" -> {
-                    "TEXT"
+    // Public API: build one or more framed buffers for sending image file path
+    fun buildFramesForImage(path: String): List<DataChannel.Buffer> {
+        val data = File(path).readBytes()
+        return buildFramedBuffers("IMAGE", data)
+    }
+
+    // Parse a single framed incoming buffer. Returns a completed message when all chunks arrive.
+    fun consumeFrame(buffer: DataChannel.Buffer): Pair<String, Any>? {
+        val bytes = ByteArray(buffer.data.remaining())
+        buffer.data.get(bytes)
+
+        // Find header terminator (first \n)
+        val newlineIndex = bytes.indexOf('\n'.code.toByte())
+        if (newlineIndex <= 0) {
+            Log.e(TAG, "Malformed frame: missing header terminator")
+            return null
+        }
+
+        val headerString = String(bytes, 0, newlineIndex, Charsets.UTF_8)
+        if (!headerString.startsWith("HDR|")) {
+            Log.e(TAG, "Malformed frame: header prefix not found")
+            return null
+        }
+
+        val parts = headerString.split('|')
+        if (parts.size != 6) {
+            Log.e(TAG, "Malformed frame header: $headerString")
+            return null
+        }
+
+        val type = parts[1] // TEXT or IMAGE
+        val messageId = parts[2]
+        val chunkIndex = parts[3].toIntOrNull() ?: return null
+        val totalChunks = parts[4].toIntOrNull() ?: return null
+        // parts[5] is reserved for future flags; currently unused
+
+        val payload = bytes.copyOfRange(newlineIndex + 1, bytes.size)
+
+        val assembly = incomingAssemblies.getOrPut(messageId) {
+            IncomingAssembly(type = type, totalChunks = totalChunks)
+        }
+
+        if (!assembly.chunks.containsKey(chunkIndex)) {
+            assembly.chunks[chunkIndex] = payload
+            assembly.receivedCount += 1
+        }
+
+        if (assembly.receivedCount == assembly.totalChunks) {
+            // Assemble in order
+            val output = ByteArrayOutputStream()
+            for (i in 0 until assembly.totalChunks) {
+                val chunk = assembly.chunks[i]
+                if (chunk == null) {
+                    Log.e(TAG, "Missing chunk $i for message $messageId")
+                    incomingAssemblies.remove(messageId)
+                    return null
                 }
-                "META_DATA_IMAGE" -> {
-                    "IMAGE"
-                }
-                else -> {
-                    null
-                }
+                output.write(chunk)
             }
-            Log.d(TAG, "convertToModel: next incoming is data and the type is = $nextInputType")
-            isWaitingForData = true
-            null
-        } else {
-
-            when(nextInputType){
-                "TEXT"->{
-                    nextInputType = null
-                    isWaitingForData = false
-                    val textDataString = String(data,Charsets.UTF_8)
-                    "TEXT" to textDataString
-                }
-
-                "IMAGE"->{
-                    nextInputType = null
-                    isWaitingForData = false
-                   val bitmap = BitmapFactory.decodeByteArray(data,0,data.size)
+            incomingAssemblies.remove(messageId)
+            val completeBytes = output.toByteArray()
+            return when (assembly.type) {
+                "TEXT" -> "TEXT" to String(completeBytes, Charsets.UTF_8)
+                "IMAGE" -> {
+                    val bitmap = BitmapFactory.decodeByteArray(completeBytes, 0, completeBytes.size)
                     "IMAGE" to bitmap
                 }
-                else->{
-                    nextInputType = null
-                    isWaitingForData = false
-                    null
-                }
-
+                else -> null
             }
         }
 
+        return null
+    }
 
+    // Internal: split into chunks and frame each with a compact text header
+    private fun buildFramedBuffers(type: String, data: ByteArray): List<DataChannel.Buffer> {
+        val messageId = UUID.randomUUID().toString()
+        val totalChunks = if (data.isEmpty()) 1 else ((data.size + CHUNK_SIZE_BYTES - 1) / CHUNK_SIZE_BYTES)
+        val buffers = ArrayList<DataChannel.Buffer>(totalChunks)
+
+        var offset = 0
+        var index = 0
+        while (offset < data.size || (data.isEmpty() && index == 0)) {
+            val remaining = data.size - offset
+            val take = if (data.isEmpty()) 0 else minOf(CHUNK_SIZE_BYTES, remaining)
+            val payload = if (take > 0) data.copyOfRange(offset, offset + take) else ByteArray(0)
+
+            val header = "HDR|$type|$messageId|$index|$totalChunks|0\n"
+            val headerBytes = header.toByteArray(Charsets.UTF_8)
+
+            val frame = ByteBuffer.allocate(headerBytes.size + payload.size)
+            frame.put(headerBytes)
+            if (payload.isNotEmpty()) frame.put(payload)
+            frame.flip()
+
+            buffers.add(DataChannel.Buffer(frame, false))
+
+            offset += take
+            index += 1
+            if (data.isEmpty()) break
+        }
+
+        return buffers
     }
 }

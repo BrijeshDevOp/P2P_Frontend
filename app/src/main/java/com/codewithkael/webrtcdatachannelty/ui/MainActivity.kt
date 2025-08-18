@@ -4,6 +4,10 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.os.Bundle
 import android.os.Environment
+import android.os.Build
+import android.provider.MediaStore
+import android.content.ContentValues
+import android.net.Uri
 import android.widget.Toast
 import java.io.File
 import java.io.FileOutputStream
@@ -49,8 +53,11 @@ class MainActivity : AppCompatActivity(), MainRepository.Listener {
             uri?.let {
                 val imagePath : String? = it.getFilePath(this)
                 if (imagePath!=null){
-                    this.imagePathToSend = imagePath
-                    Glide.with(this).load(imagePath).into(views.sendingImageView)
+                    // Immediately send after selection and return to sharing screen
+                    mainRepository.sendImageToChannel(imagePath)
+                    this.imagePathToSend = null
+                    views.sendingImageView.setImageResource(R.drawable.ic_add_photo)
+                    Toast.makeText(this, "Image sent", Toast.LENGTH_SHORT).show()
                 } else {
                     Toast.makeText(this, "image was not found", Toast.LENGTH_SHORT).show()
                 }
@@ -131,6 +138,7 @@ class MainActivity : AppCompatActivity(), MainRepository.Listener {
             views.apply {
                 requestLayout.isVisible = false
                 notificationLayout.isVisible = true
+                notificationTitle.text = "$target is trying to connect."
                 notificationAcceptBtn.setOnClickListener {
                     mainRepository.startCall(target)
                     notificationLayout.isVisible = false
@@ -172,36 +180,58 @@ class MainActivity : AppCompatActivity(), MainRepository.Listener {
     }
 
     private fun saveImageToDevice(bitmap: Bitmap) {
+        val timestamp = System.currentTimeMillis()
+        val filename = "WebRTC_Image_$timestamp.jpg"
+
         try {
-            // Create a unique filename with timestamp
-            val timestamp = System.currentTimeMillis()
-            val filename = "WebRTC_Image_$timestamp.jpg"
-            
-            // Save to Pictures directory
-            val picturesDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)
-            if (!picturesDir.exists()) {
-                picturesDir.mkdirs()
+            // Preferred: MediaStore so the image appears in the Gallery automatically
+            val values = ContentValues().apply {
+                put(MediaStore.Images.Media.DISPLAY_NAME, filename)
+                put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES)
+                    put(MediaStore.Images.Media.IS_PENDING, 1)
+                }
             }
-            
-            val imageFile = File(picturesDir, filename)
-            
-            // Create output stream and compress bitmap to JPEG
-            val outputStream = FileOutputStream(imageFile)
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 90, outputStream)
-            outputStream.flush()
-            outputStream.close()
-            
-            // Show success message with file path
-            val message = "Image saved to Pictures folder: $filename"
-            Toast.makeText(this, message, Toast.LENGTH_LONG).show()
-            
-            // Log for debugging
-            android.util.Log.d("MainActivity", "Image saved successfully: ${imageFile.absolutePath}")
-            
+
+            val resolver = contentResolver
+            val collection = MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+            val uri: Uri? = resolver.insert(collection, values)
+
+            if (uri == null) {
+                throw IllegalStateException("Failed to create MediaStore record")
+            }
+
+            resolver.openOutputStream(uri)?.use { output ->
+                if (!bitmap.compress(Bitmap.CompressFormat.JPEG, 90, output)) {
+                    throw IllegalStateException("Bitmap compression failed")
+                }
+                output.flush()
+            }
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                values.clear()
+                values.put(MediaStore.Images.Media.IS_PENDING, 0)
+                resolver.update(uri, values, null, null)
+            }
+
+            Toast.makeText(this, "Image saved to Gallery", Toast.LENGTH_LONG).show()
+
         } catch (e: Exception) {
-            val errorMessage = "Failed to save image: ${e.message}"
-            Toast.makeText(this, errorMessage, Toast.LENGTH_SHORT).show()
-            android.util.Log.e("MainActivity", errorMessage, e)
+            // Fallback: legacy file save (may not appear in gallery immediately on newer Android)
+            try {
+                val picturesDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)
+                if (!picturesDir.exists()) picturesDir.mkdirs()
+                val imageFile = File(picturesDir, filename)
+                val outputStream = FileOutputStream(imageFile)
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 90, outputStream)
+                outputStream.flush()
+                outputStream.close()
+                Toast.makeText(this, "Image saved: ${imageFile.absolutePath}", Toast.LENGTH_LONG).show()
+            } catch (inner: Exception) {
+                Toast.makeText(this, "Failed to save image: ${inner.message}", Toast.LENGTH_SHORT).show()
+                android.util.Log.e("MainActivity", "Save image failed", inner)
+            }
         }
     }
 

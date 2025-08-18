@@ -4,7 +4,6 @@ import com.codewithkael.webrtcdatachannelty.socket.SocketClient
 import com.codewithkael.webrtcdatachannelty.utils.DataConverter
 import com.codewithkael.webrtcdatachannelty.utils.DataModel
 import com.codewithkael.webrtcdatachannelty.utils.DataModelType.*
-import com.codewithkael.webrtcdatachannelty.utils.FileMetaDataType
 import com.codewithkael.webrtcdatachannelty.webrtc.MyPeerObserver
 import com.codewithkael.webrtcdatachannelty.webrtc.WebrtcClient
 import com.google.gson.Gson
@@ -12,7 +11,6 @@ import android.util.Log
 import org.webrtc.DataChannel
 import org.webrtc.IceCandidate
 import org.webrtc.SessionDescription
-import java.nio.ByteBuffer
 import javax.inject.Inject
 
 class MainRepository @Inject constructor(
@@ -79,13 +77,13 @@ class MainRepository @Inject constructor(
     }
 
     fun sendTextToDataChannel(text:String){
-        sendBufferToDataChannel(dataConverter.convertToBuffer(FileMetaDataType.META_DATA_TEXT,text))
-        sendBufferToDataChannel(dataConverter.convertToBuffer(FileMetaDataType.TEXT,text))
+        val frames = dataConverter.buildFramesForText(text)
+        frames.forEach { frame -> sendBufferToDataChannel(frame) }
     }
 
     fun sendImageToChannel(path:String){
-        sendBufferToDataChannel(dataConverter.convertToBuffer(FileMetaDataType.META_DATA_IMAGE,path))
-        sendBufferToDataChannel(dataConverter.convertToBuffer(FileMetaDataType.IMAGE,path))
+        val frames = dataConverter.buildFramesForImage(path)
+        frames.forEach { frame -> sendBufferToDataChannel(frame) }
     }
 
     private fun sendBufferToDataChannel(buffer: DataChannel.Buffer){
@@ -147,7 +145,7 @@ class MainRepository @Inject constructor(
     }
 
     override fun onDataReceived(it: DataChannel.Buffer) {
-        val model = dataConverter.convertToModel(it)
+        val model = dataConverter.consumeFrame(it)
         model?.let { result ->
             listener?.onDataReceivedFromChannel(result)
         }
