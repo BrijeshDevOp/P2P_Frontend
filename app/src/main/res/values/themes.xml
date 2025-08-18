@@ -11,13 +11,21 @@
         <item name="colorOnSecondary">@color/black</item>
         <!-- Status bar color. -->
         <item name="android:statusBarColor">?attr/colorPrimaryVariant</item>
-        <!-- Customize your theme here. -->
-        <!-- App background -->
-        <item name="android:windowBackground">@color/brand_background</item>
+        <!-- Remove custom background; use system default surface colors -->
         <!-- System navigation bar -->
         <item name="android:navigationBarColor">@color/brand_primary</item>
         <!-- Default button styles -->
         <item name="buttonStyle">@style/AppButton</item>
         <item name="materialButtonStyle">@style/AppMaterialButton</item>
+        <!-- App logo for light theme -->
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/app_logo_light</item>
+    </style>
+
+    <!-- Splash screen theme -->
+    <style name="Theme.WebRTCDataChannelTY.Splash" parent="Theme.WebRTCDataChannelTY">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowContentOverlay">@null</item>
+        <item name="android:windowIsTranslucent">true</item>
     </style>
 </resources>

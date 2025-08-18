@@ -86,6 +86,11 @@ class MainRepository @Inject constructor(
         frames.forEach { frame -> sendBufferToDataChannel(frame) }
     }
 
+    fun sendBinary(type:String, bytes: ByteArray, mimeType: String?, fileName: String?){
+        val frames = dataConverter.buildFramesForBinary(type, bytes, mimeType, fileName)
+        frames.forEach { frame -> sendBufferToDataChannel(frame) }
+    }
+
     private fun sendBufferToDataChannel(buffer: DataChannel.Buffer){
         val dataChannel = webrtcClient.getDataChannel()
         if (dataChannel?.state() == DataChannel.State.OPEN) {

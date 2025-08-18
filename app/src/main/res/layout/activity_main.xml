@@ -37,6 +37,7 @@
                 android:layout_width="100dp"
                 android:layout_height="40dp"
                 android:text="accept"
+                android:backgroundTint="@color/green"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toStartOf="@id/notificationDeclineBtn"
                 app:layout_constraintStart_toStartOf="parent" />
@@ -46,6 +47,7 @@
                 android:layout_width="100dp"
                 android:layout_height="40dp"
                 android:text="decline"
+                android:backgroundTint="@color/red"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toEndOf="@id/notificationAcceptBtn" />
@@ -100,8 +102,23 @@
             app:layout_constraintStart_toStartOf="parent"
             android:layout_marginStart="20dp"
             android:layout_marginTop="10dp"
-            android:src="@drawable/ic_add_photo"
+            android:src="@drawable/ic_pick_file"
             android:id="@+id/sendingImageView"/>
+        <TextView
+            android:id="@+id/sendingPreviewName"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            app:layout_constraintTop_toTopOf="@id/sendingImageView"
+            app:layout_constraintBottom_toBottomOf="@id/sendingImageView"
+            app:layout_constraintStart_toEndOf="@id/sendingImageView"
+            app:layout_constraintEnd_toStartOf="@id/sendImageButton"
+            android:layout_marginStart="12dp"
+            android:ellipsize="end"
+            android:maxLines="2"
+            android:textSize="12sp"
+            android:textColor="#555555"
+            android:visibility="gone"
+            android:text="filename.ext"/>
         <androidx.appcompat.widget.AppCompatButton
             android:layout_width="120dp"
             android:layout_height="wrap_content"
@@ -109,7 +126,7 @@
             app:layout_constraintBottom_toBottomOf="@id/sendingImageView"
             app:layout_constraintEnd_toEndOf="parent"
             android:layout_marginEnd="30dp"
-            android:text="send image"
+            android:text="send file"
             android:id="@+id/sendImageButton"/>
 
         <EditText
@@ -146,13 +163,26 @@
         android:visibility="gone"
         tools:visibility="visible"
       >
+        <androidx.constraintlayout.widget.Guideline
+            android:id="@+id/guideline10"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            app:layout_constraintGuide_percent="0.10" />
 
+        <androidx.constraintlayout.widget.Guideline
+            android:id="@+id/guideline80"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            app:layout_constraintGuide_percent="0.80" />
 
         <TextView
             android:layout_width="match_parent"
-            android:layout_height="40dp"
+            android:layout_height="0dp"
             android:id="@+id/receivedDataTitle"
             app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toTopOf="@id/guideline10"
             android:gravity="center"
             android:textSize="18sp"
             android:textStyle="bold"
@@ -162,17 +192,63 @@
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:id="@+id/receivedImageView"
-            app:layout_constraintBottom_toTopOf="@+id/receivedText"
-            app:layout_constraintTop_toBottomOf="@id/receivedDataTitle"
-            android:src="@mipmap/ic_launcher"/>
+            app:layout_constraintTop_toTopOf="@id/guideline10"
+            app:layout_constraintBottom_toTopOf="@id/guideline80"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_receive_placeholder"/>
+
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:id="@+id/receivedVideoContainer"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            app:layout_constraintTop_toTopOf="@id/guideline10"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintBottom_toTopOf="@id/guideline80"
+            android:visibility="gone"
+            app:layout_constraintDimensionRatio="16:9">
+
+            <VideoView
+                android:id="@+id/receivedVideoView"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"/>
+        </androidx.constraintlayout.widget.ConstraintLayout>
+
+        <ImageView
+            android:id="@+id/receivedFileIcon"
+            android:layout_width="140dp"
+            android:layout_height="140dp"
+            app:layout_constraintTop_toTopOf="@id/guideline10"
+            app:layout_constraintBottom_toTopOf="@id/guideline80"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            android:visibility="gone"
+            android:src="@drawable/ic_receive_placeholder"/>
+
+        <TextView
+            android:id="@+id/receivedFileName"
+            android:layout_width="wrap_content"
+            android:layout_height="0dp"
+            app:layout_constraintTop_toTopOf="@id/guideline80"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:visibility="gone"
+            android:text="filename.ext"/>
 
         <TextView
             android:layout_width="match_parent"
-            android:layout_height="100dp"
+            android:layout_height="0dp"
             android:id="@+id/receivedText"
             android:gravity="center"
             tools:text="received text"
-            app:layout_constraintTop_toBottomOf="@id/receivedImageView"
+            app:layout_constraintTop_toTopOf="@id/guideline80"
             app:layout_constraintBottom_toBottomOf="parent"
             android:textSize="16sp"/>
 

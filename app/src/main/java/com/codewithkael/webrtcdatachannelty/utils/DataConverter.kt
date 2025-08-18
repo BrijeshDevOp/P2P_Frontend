@@ -8,6 +8,12 @@ import java.io.File
 import java.nio.ByteBuffer
 import java.util.UUID
 
+data class ReceivedFile(
+    val bytes: ByteArray,
+    val mimeType: String?,
+    val fileName: String?
+)
+
 class DataConverter {
     private val TAG = "DataConverter"
 
@@ -21,7 +27,9 @@ class DataConverter {
         val type: String,
         val totalChunks: Int,
         val chunks: MutableMap<Int, ByteArray> = mutableMapOf(),
-        var receivedCount: Int = 0
+        var receivedCount: Int = 0,
+        var mimeType: String? = null,
+        var fileName: String? = null
     )
 
     // Public API: build one or more framed buffers for sending text
@@ -33,7 +41,11 @@ class DataConverter {
     // Public API: build one or more framed buffers for sending image file path
     fun buildFramesForImage(path: String): List<DataChannel.Buffer> {
         val data = File(path).readBytes()
-        return buildFramedBuffers("IMAGE", data)
+        return buildFramedBuffers("IMAGE", data, mimeType = "image/*", fileName = File(path).name)
+    }
+
+    fun buildFramesForBinary(type: String, data: ByteArray, mimeType: String?, fileName: String?): List<DataChannel.Buffer> {
+        return buildFramedBuffers(type, data, mimeType, fileName)
     }
 
     // Parse a single framed incoming buffer. Returns a completed message when all chunks arrive.
@@ -64,12 +76,16 @@ class DataConverter {
         val messageId = parts[2]
         val chunkIndex = parts[3].toIntOrNull() ?: return null
         val totalChunks = parts[4].toIntOrNull() ?: return null
-        // parts[5] is reserved for future flags; currently unused
+        val flags = parts[5] // may include mime and name
+        val flagMap = parseFlags(flags)
 
         val payload = bytes.copyOfRange(newlineIndex + 1, bytes.size)
 
         val assembly = incomingAssemblies.getOrPut(messageId) {
-            IncomingAssembly(type = type, totalChunks = totalChunks)
+            IncomingAssembly(type = type, totalChunks = totalChunks).apply {
+                mimeType = flagMap["mime"]
+                fileName = flagMap["name"]
+            }
         }
 
         if (!assembly.chunks.containsKey(chunkIndex)) {
@@ -97,6 +113,8 @@ class DataConverter {
                     val bitmap = BitmapFactory.decodeByteArray(completeBytes, 0, completeBytes.size)
                     "IMAGE" to bitmap
                 }
+                "VIDEO" -> "VIDEO" to ReceivedFile(completeBytes, assembly.mimeType, assembly.fileName)
+                "FILE" -> "FILE" to ReceivedFile(completeBytes, assembly.mimeType, assembly.fileName)
                 else -> null
             }
         }
@@ -105,7 +123,7 @@ class DataConverter {
     }
 
     // Internal: split into chunks and frame each with a compact text header
-    private fun buildFramedBuffers(type: String, data: ByteArray): List<DataChannel.Buffer> {
+    private fun buildFramedBuffers(type: String, data: ByteArray, mimeType: String? = null, fileName: String? = null): List<DataChannel.Buffer> {
         val messageId = UUID.randomUUID().toString()
         val totalChunks = if (data.isEmpty()) 1 else ((data.size + CHUNK_SIZE_BYTES - 1) / CHUNK_SIZE_BYTES)
         val buffers = ArrayList<DataChannel.Buffer>(totalChunks)
@@ -117,7 +135,8 @@ class DataConverter {
             val take = if (data.isEmpty()) 0 else minOf(CHUNK_SIZE_BYTES, remaining)
             val payload = if (take > 0) data.copyOfRange(offset, offset + take) else ByteArray(0)
 
-            val header = "HDR|$type|$messageId|$index|$totalChunks|0\n"
+            val flags = buildFlags(mimeType, fileName)
+            val header = "HDR|$type|$messageId|$index|$totalChunks|$flags\n"
             val headerBytes = header.toByteArray(Charsets.UTF_8)
 
             val frame = ByteBuffer.allocate(headerBytes.size + payload.size)
@@ -133,5 +152,20 @@ class DataConverter {
         }
 
         return buffers
+    }
+
+    private fun buildFlags(mimeType: String?, fileName: String?): String {
+        val parts = mutableListOf<String>()
+        mimeType?.let { parts.add("mime=" + it.replace('|', '_').replace('\n', ' ')) }
+        fileName?.let { parts.add("name=" + it.replace('|', '_').replace('\n', ' ')) }
+        return if (parts.isEmpty()) "0" else parts.joinToString(";")
+    }
+
+    private fun parseFlags(flags: String): Map<String, String> {
+        if (flags == "0" || flags.isEmpty()) return emptyMap()
+        return flags.split(';').mapNotNull { kv ->
+            val i = kv.indexOf('=')
+            if (i <= 0) null else kv.substring(0, i) to kv.substring(i + 1)
+        }.toMap()
     }
 }

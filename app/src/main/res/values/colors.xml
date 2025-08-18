@@ -9,4 +9,7 @@
     <color name="white">#FFFFFFFF</color>
     <color name="brand_primary">#315D66</color>
     <color name="brand_background">#71AF98</color>
+    <color name="green">#4CAF50</color>
+    <color name="red">#F44336</color>
+    <color name="ic_launcher_background">#FFFFFF</color>
 </resources>
