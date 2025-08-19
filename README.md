@@ -1,2 +1,1 @@
-!hello v1.0
-new
+!hello v2.0
