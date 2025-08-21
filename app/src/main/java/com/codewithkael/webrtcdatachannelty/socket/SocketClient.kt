@@ -29,7 +29,7 @@ class SocketClient @Inject constructor(
     fun init(username: String) {
         this.username = username
 
-        webSocket = object : WebSocketClient(URI("https://backend-oezf.onrender.com/")) {
+        webSocket = object : WebSocketClient(URI("wss://backend-oezf.onrender.com/")) {
             override fun onOpen(handshakedata: ServerHandshake?) {
                 sendMessageToSocket(
                     DataModel(
