@@ -2,7 +2,7 @@
 
 ### A Peer-to-Peer File Transfer System
 
-![Project Banner](https://your-image-url-here.com/banner.png)
+![Project Banner](assets/image.png)
 
 This is a sample Android application that demonstrates the use of WebRTC data channels for peer-to-peer communication. The application allows users to connect with each other and exchange data directly, without the need for a central server for data transfer (after the initial connection is established).
 
@@ -15,7 +15,7 @@ This is a sample Android application that demonstrates the use of WebRTC data ch
 
 ## 📡 What is WebRTC?`​`
 
-![Demo GIF](https://your-gif-url-here.com/demo.gif)
+![Demo GIF](assets/gif.gif)
 
 WebRTC (Web Real-Time Communication) is a free, open-source project that provides web browsers and mobile applications with real-time communication (RTC) capabilities via simple APIs. It allows for peer-to-peer communication, which means that data can be sent directly between two devices without needing to go through a central server. This makes it ideal for applications that require low-latency communication, such as video conferencing, voice calls, and file sharing.
 
@@ -44,10 +44,10 @@ Follow these instructions to get a copy of the project up and running on your lo
 To get a local copy of the code, clone the repository using the following command in your terminal:
 
 ```bash
-git clone https://github.com/your-username/your-repository-name.git
+git clone https://github.com/BrijeshDevOp/P2P_Frontend.git
 ```
 
-Replace `your-username` and `your-repository-name` with your actual GitHub username and repository name.
+This will clone the SafeNex P2P file transfer application to your local machine.
 
 ### Installation and Setup
 
@@ -65,13 +65,14 @@ Replace `your-username` and `your-repository-name` with your actual GitHub usern
     -   Select your target device from the dropdown menu in the toolbar.
     -   Click the "Run" button (the green play icon) or use the shortcut `Shift + F10`.
 
-## 🖼️ Project Image
+## 🖼️ Project Screenshots
 
-To add an image to the top of this `README.md` file:
+The project includes visual demonstrations:
 
-1.  Create a screenshot or a banner for your project.
-2.  Upload it to your GitHub repository or an image hosting service.
-3.  Replace `https://your-image-url-here.com/banner.png` with the actual URL of your image.
+- **Project Banner**: Located at the top of this README showing the app interface
+- **Demo GIF**: Shows the P2P file transfer functionality in action
+
+Both images are stored in the `assets/` folder and are automatically displayed in this README.
 
 ## 🤝 Contributing
 

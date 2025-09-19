@@ -1,3 +1,4 @@
+# Android Studio and Gradle files
 *.iml
 .gradle
 /local.properties
@@ -13,3 +14,30 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Build outputs
+/app/build/
+/app/release/
+*.apk
+*.aab
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+
+# IMPORTANT: Ensure assets folder and media files are tracked
+# The following lines ensure our README assets are included in git
+!assets/
+!assets/*.png
+!assets/*.jpg
+!assets/*.jpeg
+!assets/*.gif
+!assets/*.webp
+!assets/*.svg
+
+# README and documentation assets should always be tracked
+!README.md
+!*.md
