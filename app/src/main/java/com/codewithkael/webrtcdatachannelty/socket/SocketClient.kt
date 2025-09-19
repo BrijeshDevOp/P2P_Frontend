@@ -29,8 +29,7 @@ class SocketClient @Inject constructor(
     fun init(username: String) {
         this.username = username
 
-        webSocket = object : WebSocketClient(URI("wss://p2p-backend-ap3r.onrender.com/")) {
-
+        webSocket = object : WebSocketClient(URI("wss://p2p-backend-1-w0qc.onrender.com/")) {
             override fun onOpen(handshakedata: ServerHandshake?) {
                 sendMessageToSocket(
                     DataModel(
